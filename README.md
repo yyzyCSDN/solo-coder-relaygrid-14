@@ -30,6 +30,25 @@ Domain modules remain independently importable so applications can combine
 topology, protection, telemetry, restoration, reliability, planning, and field
 operations without depending on a web framework or database.
 
+## Restoration command ledger
+
+`relaygrid.operations.restoration_ledger.RestorationLedger` pins one approved
+switching-order revision (`SwitchingOrder`, with a content-hash digest) and
+posts its steps to a `CommandBus` strictly in sequence, confirming each step
+against `StateStore` telesignals before advancing:
+
+- one cursor; any unconfirmed step (`dispatched` / `awaiting_signal` /
+  `failed` / `timed_out`) pauses all later steps;
+- duplicate dispatches and duplicate device receipts (stable
+  `command_id:status` receipt keys) are no-ops; command TTL and
+  telesignal-wait timeouts are idempotent;
+- manual skips (`skip`) and failure retries (`retry`, bounded by
+  `max_attempts`, fresh attempt id per retry) are idempotent; hold points
+  require explicit `release_hold`;
+- every transition is appended to a SHA-256 hash-chained evidence log, and
+  `export()` preserves the full ticket version, per-step runs, and evidence;
+  `verify_chain()` detects tampering.
+
 ## License
 
 RelayGrid is released under the MIT License.
